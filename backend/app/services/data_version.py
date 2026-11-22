@@ -9,15 +9,15 @@ class DataVersionService(BaseModuleService):
     MODULE = "data_version"
     ENTITY = "数据快照"
     OPERATION_TERM = "采集"
-    LIST_FIELDS = ["版本编号", "数据来源", "行数统计", "版本标签", "Schema摘要", "创建原因", "依赖版本", "创建时间"]
+    LIST_FIELDS = ["版本编号", "数据来源", "行数统计", "版本标签", "Schema摘要", "创建原因", "依赖版本", "创建时间", "缓存版本", "分区清单"]
     REQUIRED_FIELDS = ["版本编号", "数据来源", "行数统计"]
     STATUS_ORDER = ["创建中", "可用", "标注中", "已废弃"]
     ACTION_RULES = {"创建快照": "可用", "标注版本": "标注中", "废弃版本": "已废弃"}
     NEGATIVE_ACTIONS = []
 
-    def run_action(self, entry_id: int, action: str):
+    def run_action(self, entry_id: int, action: str, remark: str | None = None):
         """创建快照时同步投递管道和订阅方；标注版本时联动治理报告；废弃版本时审计。"""
-        entry, message = super().run_action(entry_id, action)
+        entry, message = super().run_action(entry_id, action, remark)
         if entry is None:
             return entry, message
         if action == "创建快照":
@@ -93,14 +93,57 @@ class DataVersionService(BaseModuleService):
         })
 
     def check_version_lineage(self, source: str) -> dict:
-        """跨模块版本谱系检查。"""
+        """跨模块版本谱系检查，兼容历史完整结果：只统计能追溯分区与缓存版本的完整快照。"""
         versions = [v for v in store.rows("data_version") if v.get("数据来源") == source]
         deliveries = [d for d in store.rows("data_delivery") if d.get("数据来源") == source]
         subscribers = [s for s in store.rows("subscriber") if s.get("数据主题") == source]
+        complete = [
+            v for v in versions
+            if self._complete_partitions(v)
+        ]
+        stats = []
+        for version in complete:
+            partitions = self._complete_partitions(version)
+            try:
+                rows = int(version.get("行数统计", 0))
+            except (TypeError, ValueError):
+                rows = 0
+            stats.append({
+                "版本编号": version.get("版本编号"),
+                "缓存版本": version.get("缓存版本") or "",
+                "partitions": sorted(set(partitions)),
+                "partition_count": len(set(partitions)),
+                "rows": rows,
+            })
         return {
             "source": source,
             "versions": len(versions),
             "active_versions": sum(1 for v in versions if v.get("status") == "可用"),
+            "complete_versions": len(complete),
+            "version_stats": stats,
             "delivery_pipelines": len(deliveries),
             "subscribers": len(subscribers),
         }
+
+    @staticmethod
+    def _complete_partitions(version: dict) -> list[str]:
+        """完整快照的分区口径：新版看分区清单，历史完整结果从分区策略推断。"""
+        raw = str(version.get("分区清单") or version.get("缓存分区") or "")
+        partitions: list[str] = []
+        for item in raw.replace("|", "、").replace(",", "、").replace("，", "、").split("、"):
+            name = item.strip()
+            if name and name not in partitions:
+                partitions.append(name)
+        if partitions:
+            return partitions
+        if not str(version.get("缓存版本", "")).strip():
+            policy = str(version.get("依赖版本") or "")
+            if "partitions=" in policy:
+                segment = policy.split("partitions=", 1)[1].split(";")[0]
+                for item in segment.replace("|", "、").replace(",", "、").split("、"):
+                    name = item.strip()
+                    if name and name not in partitions:
+                        partitions.append(name)
+            elif str(version.get("版本标签", "")) == "delivery_complete":
+                partitions = ["p0", "p1"]
+        return partitions

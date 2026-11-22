@@ -15,9 +15,9 @@ class SubscriberService(BaseModuleService):
     ACTION_RULES = {"激活订阅": "推送中", "确认消费": "消费确认", "停订服务": "已停订"}
     NEGATIVE_ACTIONS = []
 
-    def run_action(self, entry_id: int, action: str):
+    def run_action(self, entry_id: int, action: str, remark: str | None = None):
         """激活订阅时创建webhook规则和数据版本；确认消费时更新调用日志；停订时清理缓存。"""
-        entry, message = super().run_action(entry_id, action)
+        entry, message = super().run_action(entry_id, action, remark)
         if entry is None:
             return entry, message
         if action == "激活订阅":

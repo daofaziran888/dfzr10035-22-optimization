@@ -15,9 +15,9 @@ class SchemaDiffService(BaseModuleService):
     ACTION_RULES = {"发起评估": "评估中", "确认变更": "已确认", "忽略差异": "已忽略"}
     NEGATIVE_ACTIONS = ["忽略差异"]
 
-    def run_action(self, entry_id: int, action: str):
+    def run_action(self, entry_id: int, action: str, remark: str | None = None):
         """评估中时更新端点状态和治理报告；确认变更时创建数据版本；忽略差异时记录治理。"""
-        entry, message = super().run_action(entry_id, action)
+        entry, message = super().run_action(entry_id, action, remark)
         if entry is None:
             return entry, message
         if action == "发起评估":

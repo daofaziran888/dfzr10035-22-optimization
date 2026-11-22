@@ -15,9 +15,9 @@ class ResponseParseService(BaseModuleService):
     ACTION_RULES = {"启效规则": "生效中", "标记异常": "解析异常", "废弃规则": "已废弃"}
     NEGATIVE_ACTIONS = []
 
-    def run_action(self, entry_id: int, action: str):
+    def run_action(self, entry_id: int, action: str, remark: str | None = None):
         """启效规则时同步创建Schema差异检测记录；标记异常时写调用日志。"""
-        entry, message = super().run_action(entry_id, action)
+        entry, message = super().run_action(entry_id, action, remark)
         if entry is None:
             return entry, message
         if action == "启效规则":

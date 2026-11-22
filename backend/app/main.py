@@ -74,6 +74,39 @@ def chain_batch_throughput(endpoint_id: str):
     return RequestBatchService().check_batch_throughput(endpoint_id)
 
 
+@app.get("/api/chain/cache-snapshot/{endpoint:path}")
+def chain_cache_snapshot(endpoint: str, version: str | None = None):
+    """链路6b：分段缓存快照读取（只返回完整已发布版本，各段保证同版本）。"""
+    from app.services.cache_snapshot import SnapshotError, SnapshotNotFound, snapshots
+
+    try:
+        return snapshots.snapshot(endpoint, version)
+    except SnapshotNotFound as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+    except SnapshotError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+
+
+@app.get("/api/chain/cache-stage/{endpoint:path}")
+def chain_cache_stage(endpoint: str, version: str | None = None):
+    """链路6c：隐藏暂存区视图（采集中/已中断），可追溯已完成分区与缺失分区。"""
+    from app.services.cache_snapshot import SnapshotError, SnapshotNotFound, snapshots
+
+    try:
+        return snapshots.stage_view(endpoint, version) if version else snapshots.endpoint_state(endpoint)
+    except (SnapshotNotFound, SnapshotError) as error:
+        raise HTTPException(status_code=404, detail=str(error)) from error
+
+
+@app.get("/api/chain/delivery-records")
+def chain_delivery_records(delivery_id: int | None = None):
+    """链路7b：交付账本，交付清单与版本统计的实际分区口径一致。"""
+    from app.services.delivery_ledger import ledger
+
+    records = ledger.records(delivery_id)
+    return {"records": records, "total": len(records)}
+
+
 @app.get("/api/chain/cache-hit-rate")
 def chain_cache_hit_rate():
     """链路6：缓存命中率（跨 data_cache/data_delivery/subscriber）"""

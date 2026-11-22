@@ -15,9 +15,9 @@ class ApiProviderService(BaseModuleService):
     ACTION_RULES = {"审核注册": "已注册", "标记降级": "SLA降级", "停用来源": "已停用"}
     NEGATIVE_ACTIONS = ["停用来源"]
 
-    def run_action(self, entry_id: int, action: str):
+    def run_action(self, entry_id: int, action: str, remark: str | None = None):
         """审核注册时联动创建鉴权方案、端点定义和限流策略。"""
-        entry, message = super().run_action(entry_id, action)
+        entry, message = super().run_action(entry_id, action, remark)
         if entry is None:
             return entry, message
         if action == "审核注册":

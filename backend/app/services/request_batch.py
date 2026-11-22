@@ -15,9 +15,9 @@ class RequestBatchService(BaseModuleService):
     ACTION_RULES = {"启动执行": "执行中", "取消批次": "已完成", "标记完成": "部分失败"}
     NEGATIVE_ACTIONS = []
 
-    def run_action(self, entry_id: int, action: str):
+    def run_action(self, entry_id: int, action: str, remark: str | None = None):
         """启动执行时联动创建调用日志；标记完成/部分失败时联动创建重放任务和缓存刷新。"""
-        entry, message = super().run_action(entry_id, action)
+        entry, message = super().run_action(entry_id, action, remark)
         if entry is None:
             return entry, message
         if action == "启动执行":

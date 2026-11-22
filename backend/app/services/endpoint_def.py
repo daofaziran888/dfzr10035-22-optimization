@@ -15,9 +15,9 @@ class EndpointDefService(BaseModuleService):
     ACTION_RULES = {"提交联调": "联调中", "投产发布": "已投产", "标记变更": "Schema变更"}
     NEGATIVE_ACTIONS = []
 
-    def run_action(self, entry_id: int, action: str):
+    def run_action(self, entry_id: int, action: str, remark: str | None = None):
         """投产发布时联动创建响应解析规则和Schema差异记录；Schema变更时通知缓存刷新。"""
-        entry, message = super().run_action(entry_id, action)
+        entry, message = super().run_action(entry_id, action, remark)
         if entry is None:
             return entry, message
         if action == "投产发布":
